@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Model for mapping ARI Swagger resources and operations into objects.
 
@@ -67,7 +67,7 @@ class ObjectIdGenerator(object):
     representation.
     """
 
-    def get_params(self, obj_json):
+    async def get_params(self, obj_json):
         """Gets the paramater values for specifying this object in a query.
 
         :param obj_json: Instance data.
@@ -77,7 +77,7 @@ class ObjectIdGenerator(object):
         """
         raise NotImplementedError("Not implemented")
 
-    def id_as_str(self, obj_json):
+    async def id_as_str(self, obj_json):
         """Gets a single string identifying an object.
 
         :param obj_json: Instance data.
@@ -100,10 +100,13 @@ class DefaultObjectIdGenerator(ObjectIdGenerator):
         self.param_name = param_name
         self.id_field = id_field
 
-    def get_params(self, obj_json):
+    async def get_params(self, obj_json):
         return {self.param_name: obj_json[self.id_field]}
 
-    def id_as_str(self, obj_json):
+    async def id_as_str(self, obj_json):
+        print(type(self))
+        o = obj_json
+        print(type(o))
         return obj_json[self.id_field]
 
 
@@ -119,13 +122,11 @@ class BaseObject(object):
     :param event_reg:
     """
 
-    id_generator = ObjectIdGenerator()
-
-    def __init__(self, client, resource, as_json, event_reg):
+    async def baseinit(self, client, resource, as_json, event_reg):
         self.client = client
         self.api = resource
         self.json = as_json
-        self.id = self.id_generator.id_as_str(as_json)
+        self.id = await self.id_generator.id_as_str(as_json)
         self.event_reg = event_reg
 
     def __repr__(self):
@@ -142,7 +143,7 @@ class BaseObject(object):
             raise AttributeError(
                 "'%r' object has no attribute '%r'" % (self, item))
 
-        def enrich_operation(**kwargs):
+        async def enrich_operation(**kwargs):
             """Enriches an operation by specifying parameters specifying this
             object's id (i.e., channelId=self.id), and promotes HTTP response
             to a first-class object.
@@ -151,12 +152,12 @@ class BaseObject(object):
             :return: First class object mapped from HTTP response.
             """
             # Add id to param list
-            kwargs.update(self.id_generator.get_params(self.json))
-            return promote(self.client, oper(**kwargs), oper.json)
+            kwargs.update(await self.id_generator.get_params(self.json))
+            return await promote(self.client, oper(**kwargs), oper.json)
 
         return enrich_operation
 
-    def on_event(self, event_type, fn, *args, **kwargs):
+    async def on_event(self, event_type, fn, *args, **kwargs):
         """Register event callbacks for this specific domain object.
 
         :param event_type: Type of event to register for.
@@ -167,7 +168,7 @@ class BaseObject(object):
         :param kwargs: Keyword arguments to pass to fn
         """
 
-        def fn_filter(objects, event, *args, **kwargs):
+        async def fn_filter(objects, event, *args, **kwargs):
             """Filter received events for this object.
 
             :param objects: Objects found in this event.
@@ -184,7 +185,7 @@ class BaseObject(object):
             msg = "Event callback registration called on object with no events"
             raise RuntimeError(msg)
 
-        return self.event_reg(event_type, fn_filter, *args, **kwargs)
+        return await self.event_reg(event_type, fn_filter, *args, **kwargs)
 
 
 class Channel(BaseObject):
@@ -194,13 +195,9 @@ class Channel(BaseObject):
     :type  client:  client.Client
     :param channel_json: Instance data
     """
-
-    id_generator = DefaultObjectIdGenerator('channelId')
-
-    def __init__(self, client, channel_json):
-        super(Channel, self).__init__(
-            client, client.swagger.channels, channel_json,
-            client.on_channel_event)
+    async def init(self, client, channel_json):
+        self.id_generator = DefaultObjectIdGenerator('channelId')
+        await self.baseinit(client, client.swagger.channels, channel_json, client.on_channel_event)
 
 
 class Bridge(BaseObject):
@@ -226,12 +223,9 @@ class Playback(BaseObject):
     :type  client:  client.Client
     :param playback_json: Instance data
     """
-    id_generator = DefaultObjectIdGenerator('playbackId')
-
-    def __init__(self, client, playback_json):
-        super(Playback, self).__init__(
-            client, client.swagger.playbacks, playback_json,
-            client.on_playback_event)
+    async def init(self, client, playback_json):
+        self.id_generator = DefaultObjectIdGenerator('playbackId')
+        await self.baseinit(client, client.swagger.playbacks, playback_json, client.on_playback_event)
 
 
 class LiveRecording(BaseObject):
@@ -269,13 +263,13 @@ class EndpointIdGenerator(ObjectIdGenerator):
     """Id generator for endpoints, because they are weird.
     """
 
-    def get_params(self, obj_json):
+    async def get_params(self, obj_json):
         return {
             'tech': obj_json['technology'],
             'resource': obj_json['resource']
         }
 
-    def id_as_str(self, obj_json):
+    async def id_as_str(self, obj_json):
         return "%(tech)s/%(resource)s" % self.get_params(obj_json)
 
 
@@ -339,7 +333,7 @@ class Mailbox(BaseObject):
             client, client.swagger.mailboxes, mailbox_json, None)
 
 
-def promote(client, resp, operation_json):
+async def promote(client, resp, operation_json):
     """Promote a response from the request's HTTP response to a first class
      object.
 
@@ -351,22 +345,32 @@ def promote(client, resp, operation_json):
     :type  operation_json: dict
     :return:
     """
+    resp = await resp
     resp.raise_for_status()
 
     response_class = operation_json['responseClass']
     is_list = False
+
     m = re.match('''List\[(.*)\]''', response_class)
     if m:
         response_class = m.group(1)
         is_list = True
+
     factory = CLASS_MAP.get(response_class)
     if factory:
-        resp_json = resp.json()
+        resp_json = await resp.json()
         if is_list:
-            return [factory(client, obj) for obj in resp_json]
-        return factory(client, resp_json)
-    if resp.status_code == requests.codes.no_content:
+            return await [factory(client, obj) for obj in resp_json]
+        print(factory)
+        f = factory()
+        print('here1')
+        print(resp_json)
+        await f.init(client, resp_json)
+        return f
+
+    if resp.status == requests.codes.no_content:
         return None
+
     log.info("No mapping for %s; returning JSON" % response_class)
     return resp.json()
 

@@ -5,14 +5,13 @@
 """ARI client library
 """
 
-import ari.client
-import swaggerpy.http_client
+import aripy3.client
+import swaggerpy3.http_client
 import urllib.parse
 
-Client = client.Client
+from .client import ARIClient
 
-
-def connect(base_url, username, password):
+async def connect(base_url, username, password):
     """Helper method for easily connecting to ARI.
 
     :param base_url: Base URL for Asterisk HTTP server (http://localhost:8088/)
@@ -21,6 +20,8 @@ def connect(base_url, username, password):
     :return:
     """
     split = urllib.parse.urlsplit(base_url)
-    http_client = swaggerpy.http_client.SynchronousHttpClient()
+    http_client = swaggerpy3.http_client.AsyncHttpClient()
     http_client.set_basic_auth(split.hostname, username, password)
-    return Client(base_url, http_client)
+    ari = ARIClient()
+    await ari.connect(base_url, http_client)
+    return ari
