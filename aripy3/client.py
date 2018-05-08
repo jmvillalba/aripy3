@@ -190,19 +190,12 @@ class ARIClient(object):
             """
             # Extract the fields which are of the expected type
 
-            print(event)
-            print(factory_fn)
-           
             obj = {}
             for obj_field in obj_fields:
                 if event.get(obj_field):
                     ffn = factory_fn()
                     await ffn.init(self, event[obj_field])
                     obj[obj_field] = ffn
-
-#            obj = {obj_field: await factory_fn.init(self, event[obj_field])
-#                   for obj_field in obj_fields
-#                   if event.get(obj_field)}
 
             # If there's only one field in the schema, just pass that along
             if len(obj_fields) == 1:

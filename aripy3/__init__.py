@@ -1,5 +1,6 @@
 #
 # Copyright (c) 2013, Digium, Inc.
+# Copyright (c) 2018, AVOXI, Inc.
 #
 
 """ARI client library

@@ -104,9 +104,6 @@ class DefaultObjectIdGenerator(ObjectIdGenerator):
         return {self.param_name: obj_json[self.id_field]}
 
     async def id_as_str(self, obj_json):
-        print(type(self))
-        o = obj_json
-        print(type(o))
         return obj_json[self.id_field]
 
 
@@ -361,10 +358,7 @@ async def promote(client, resp, operation_json):
         resp_json = await resp.json()
         if is_list:
             return await [factory(client, obj) for obj in resp_json]
-        print(factory)
         f = factory()
-        print('here1')
-        print(resp_json)
         await f.init(client, resp_json)
         return f
 
