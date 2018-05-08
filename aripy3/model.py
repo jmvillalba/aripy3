@@ -141,6 +141,7 @@ class BaseObject(object):
                 "'%r' object has no attribute '%r'" % (self, item))
 
         async def enrich_operation(**kwargs):
+            print(kwargs)
             """Enriches an operation by specifying parameters specifying this
             object's id (i.e., channelId=self.id), and promotes HTTP response
             to a first-class object.
@@ -173,10 +174,10 @@ class BaseObject(object):
             """
             if isinstance(objects, dict):
                 if self.id in [c.id for c in objects.values()]:
-                    fn(objects, event, *args, **kwargs)
+                    await fn(objects, event, *args, **kwargs)
             else:
                 if self.id == objects.id:
-                    fn(objects, event, *args, **kwargs)
+                    await fn(objects, event, *args, **kwargs)
 
         if not self.event_reg:
             msg = "Event callback registration called on object with no events"

@@ -31,7 +31,7 @@ class ARIClient(object):
 
         self.repositories = {
             name: Repository(self, name, api)
-            for (name, api) in self.swagger.resources.items()}
+            for (name, api) in list(self.swagger.resources.items())}
 
         # Extract models out of the events resource
         events = [api['api_declaration']
@@ -174,7 +174,7 @@ class ARIClient(object):
             raise ValueError("Cannot find event model '%s'" % event_type)
 
         # Extract the fields that are of the expected type
-        obj_fields = [k for (k, v) in event_model['properties'].items()
+        obj_fields = [k for (k, v) in list(event_model['properties'].items())
                       if v['type'] == model_id]
         if not obj_fields:
             raise ValueError("Event model '%s' has no fields of type %s"
@@ -200,7 +200,7 @@ class ARIClient(object):
             # If there's only one field in the schema, just pass that along
             if len(obj_fields) == 1:
                 if obj:
-                    obj = obj.values()[0]
+                    obj = list(obj.values())[0]
                 else:
                     obj = None
             await event_cb(obj, event, *args, **kwargs)
