@@ -142,6 +142,10 @@ the code coverage report. HTML versions of the reports are put in
     $ python3 setup.py nosetests # run unit tests
     $ python3 setup.py bdist_egg # build distributable
 
+TODO
+----
+Fix the 'on_channel_start' channel variable.
+
 
 License
 -------
